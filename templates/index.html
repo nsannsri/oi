@@ -1,1 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Options Data Table</title>
+    <style nonce="{{ nonce }}">
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f4f6f8;
+            margin: 0;
+            padding: 40px 20px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            color: #333333;
+        }
+
+        .container {
+            max-width: 90%;
+            margin: 0 auto;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        h2 {
+            text-align: center;
+            font-weight: 600;
+            font-size: 1.8em;
+            color: #333333;
+            margin-bottom: 5px;
+            padding: 8px 0;
+            border-bottom: 2px solid #e0e0e0;
+            letter-spacing: 0.5px;
+        }
+
+        .subtitle {
+            text-align: center;
+            font-size: 1em;
+            color: #888888;
+            margin-top: -5px;
+            margin-bottom: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+            background-color: #ffffff;
+            margin: 0 auto;
+            border: 1px solid #ddd;
+        }
+
+        th, td {
+            padding: 8px;
+            text-align: center;
+            font-size: 0.9em;
+            transition: all 0.3s ease;
+        }
+
+        th {
+            background: linear-gradient(135deg, #0288d1, #01579b);
+            color: #ffffff;
+            font-weight: 600;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 2px solid #004a99;
+        }
+
+        .footer {
+            background-color: #4db6ac;
+            color: #000000;
+            font-weight: bold;
+            border-top: 2px solid #00796b;
+        }
+
+        .strike-price {
+            background-color: #ffd966;
+            font-weight: 600;
+            color: #333333;
+        }
+
+        .atm-strike {
+            background-color: #1b5e20;
+            color: #000000;
+            font-weight: bold;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+            padding: 8px;
+            border: 1px solid #004d40;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f9fbfd;
+        }
+
+        tr:hover {
+            background: linear-gradient(135deg, #e1f5fe, #f9fbfd);
+            transform: scale(1.01);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.08);
+            transition: all 0.2s ease;
+        }
+
+        .analysis-column {
+            background-color: #e0f7fa;
+            font-weight: bold;
+        }
+
+        .positive-diff {
+            color: #4caf50;
+        }
+
+        .negative-diff {
+            color: #e53935;
+        }
+
+        .footer .analysis-column {
+            background-color: #b2dfdb;
+            font-weight: bold;
+        }
+
+        .negative-oi {
+            color: #e53935;
+            font-weight: bold;
+        }
+
+        .green {
+            color: green;
+        }
+        .red {
+            color: red;
+        }
+
+        @media (max-width: 768px) {
+            th, td {
+                padding: 6px;
+                font-size: 0.85em;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>Options Data Table</h2>
+    <p id="lastUpdated">Data last fetched at: {{ timestamp }}</p>
+    <p class="subtitle">Live updates of Call and Put options with market sentiment analysis</p>
+    
+    <table id="dataTable">
+        <thead>
+            <tr>
+                <th colspan="6">Call (CE)</th>
+                <th class="strike-price">Strike Price (STP)</th>
+                <th colspan="6">Put (PE)</th>
+                <th class="analysis-column">OI Diff</th>
+                <th class="analysis-column">OI PCR</th>
+                <th class="analysis-column">Trending OI</th>
+            </tr>
+            <tr>
+                <th>OI (Lakhs)</th>
+                <th>Change in OI (Lakhs)</th>
+                <th>IV</th>
+                <th>Delta</th>
+                <th>CE-S</th>
+                <th>LTP</th>
+                <th class="strike-price">STP</th>
+                <th>LTP</th>
+                <th>Delta</th>
+                <th>PE-S</th>
+                <th>IV</th>
+                <th>Change in OI (Lakhs)</th>
+                <th>OI (Lakhs)</th>
+                <th class="analysis-column">OI Diff</th>
+                <th class="analysis-column">OI PCR</th>
+                <th class="analysis-column">Trending OI</th>
+            </tr>
+        </thead>
+        <tbody id="tableBody">
+            <!-- Dynamic rows will be populated here -->
+        </tbody>
+        <tfoot>
+            <tr class="footer" id="totalsRow">
+                <!-- Totals row will be dynamically populated -->
+            </tr>
+        </tfoot>
+    </table>
+</div>
+
+<script src="{{ url_for('static', filename='js/jquery.min.js') }}" nonce="{{ nonce }}"></script>
+<script nonce="{{ nonce }}">
+    function formatLakhs(value) {
+        return value.toFixed(2) + " L";
+    }
+
+    function fetchData() {
+        $.ajax({
+            url: `/api/data?timestamp=${new Date().getTime()}`,
+            method: 'GET',
+            dataType: 'json',
+            success: function(result) {
+                if (result.error) {
+                    console.error("Error fetching data:", result.error);
+                    return;
+                }
+                updateTable(result.data, result.atm_strike);
+                const utcDate = new Date(result.timestamp);
+                const istDate = new Date(utcDate.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+                const formattedDate = istDate.toLocaleString('en-IN', {
+                    weekday: 'short',
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: true,
+                });
+                document.getElementById("lastUpdated").innerText = `Data last fetched at: ${formattedDate}`;
+            },
+            error: function(error) {
+                console.error("Error fetching data:", error);
+            }
+        });
+    }
+
+function updateTable(data, atmStrike) {
+    const tableBody = document.getElementById("tableBody");
+    const totalsRow = document.getElementById("totalsRow");
+    tableBody.innerHTML = '';  // Clear existing rows
+
+    let totalCEOI = 0, totalPEOI = 0, totalCEChangeOI = 0, totalPEChangeOI = 0;
+
+    data.forEach(row => {
+        totalCEOI += row.CEOI || 0;
+        totalPEOI += row.PEOI || 0;
+        totalCEChangeOI += row['CE-CH-OI'] || 0;
+        totalPEChangeOI += row['PE-CH-OI'] || 0;
+
+        const oiDifference = ((row.PEOI || 0) - (row.CEOI || 0)).toFixed(2);
+        const oiPCR = (row.CEOI ? (row.PEOI / row.CEOI).toFixed(2) : '0.00');
+        const trendingOI = ((row['PE-CH-OI'] || 0) - (row['CE-CH-OI'] || 0)).toFixed(2);
+
+        const ceSpClass = row['CE-Sp'] <= 1 ? 'green' : 'red';
+        const peSpClass = row['PE-Sp'] <= 1 ? 'green' : 'red';
+
+        const rowHtml = `
+            <tr class="${row.STP === atmStrike ? 'atm-strike' : ''}">
+                <td>${formatLakhs(row.CEOI)}</td>
+                <td class="${row['CE-CH-OI'] < 0 ? 'negative-oi' : ''}">${formatLakhs(row['CE-CH-OI'])}</td>
+                <td>${(row['CE-IV'] || 0).toFixed(2)}</td>
+                <td>${(row['CE-Delta'] || 0).toFixed(2)}</td>
+                <td class="${ceSpClass}">${(row['CE-Sp'] || 0).toFixed(2)}%</td>
+                <td>${row.CLTP || 0}</td>
+                <td class="strike-price">${row.STP || 0}</td>
+                <td>${row.PLTP || 0}</td>
+                <td>${(row['PE-Delta'] || 0).toFixed(2)}</td>
+                <td class="${peSpClass}">${(row['PE-Sp'] || 0).toFixed(2)}%</td>
+                <td>${(row['PE-IV'] || 0).toFixed(2)}</td>
+                <td class="${row['PE-CH-OI'] < 0 ? 'negative-oi' : ''}">${formatLakhs(row['PE-CH-OI'])}</td>
+                <td>${formatLakhs(row.PEOI)}</td>
+                <td class="analysis-column ${oiDifference > 0 ? 'positive-diff' : 'negative-diff'}">${oiDifference}</td>
+                <td class="analysis-column">${oiPCR}</td>
+                <td class="analysis-column ${trendingOI > 0 ? 'positive-diff' : 'negative-diff'}">${trendingOI}</td>
+            </tr>`;
+
+        tableBody.innerHTML += rowHtml;
+    });
+
+    const oiPCRFooter = (totalPEOI ? (totalPEOI / totalCEOI).toFixed(2) : '0.00');
+    const trendingOIFooter = (totalPEChangeOI - totalCEChangeOI).toFixed(2);
+
+    totalsRow.innerHTML = `
+        <td>${formatLakhs(totalCEOI)}</td>
+        <td>${formatLakhs(totalCEChangeOI)}</td>
+        <td colspan="1"></td>
+        <td colspan="1"></td>
+        <td colspan="1"></td>
+        <td colspan="1"></td>
+        <td class="strike-price">Totals</td>
+        <td colspan="1"></td>
+        <td colspan="1"></td>
+        <td colspan="1"></td>
+        <td colspan="1"></td>
+        <td>${formatLakhs(totalPEChangeOI)}</td>
+        <td>${formatLakhs(totalPEOI)}</td>
+        <td class="analysis-column ${totalPEOI - totalCEOI > 0 ? 'positive-diff' : 'negative-diff'}">${(totalPEOI - totalCEOI).toFixed(2)}</td>
+        <td class="analysis-column">${oiPCRFooter}</td>
+        <td class="analysis-column ${trendingOIFooter > 0 ? 'positive-diff' : 'negative-diff'}">${trendingOIFooter}</td>
+    `;
+}
+
+
+    fetchData();
+    setInterval(fetchData, 30000);
+</script>
+</body>
+</html>
+
 
