@@ -30,8 +30,31 @@ This repository contains the source code for a dynamic, scalable Open Interest (
    - A **DhanHQ** account with API access enabled.
    - API credentials (Client ID and Access Token) for accessing market data.
 
-4. **MongoDB**:
-   - A running MongoDB instance (local or cloud-hosted) with access for caching real-time data.
+4. **MongoDB Setup**:
+   - Install MongoDB on your EC2 instance or use a cloud-hosted MongoDB service.
+   - **Installation Steps for MongoDB (Ubuntu):**
+     ```bash
+     # Import the MongoDB public GPG key:
+     wget -qO - https://www.mongodb.org/static/pgp/server-5.0.asc | sudo apt-key add -
+
+     # Create the MongoDB source list:
+     echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/5.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-5.0.list
+
+     # Update the package database:
+     sudo apt-get update
+
+     # Install MongoDB:
+     sudo apt-get install -y mongodb-org
+
+     # Start and enable MongoDB:
+     sudo systemctl start mongod
+     sudo systemctl enable mongod
+     ```
+   - Verify MongoDB is running:
+     ```bash
+     sudo systemctl status mongod
+     ```
+   - Ensure the `MONGO_URI` in your `.env` file points to your MongoDB instance.
 
 5. **Python**:
    - Python 3.8 or above installed.
@@ -79,7 +102,31 @@ MONGO_URI=mongodb://your_mongo_uri
 ### Step 3: Configure AWS Services
 1. **S3 Bucket**:
    - Enable static website hosting on your S3 bucket.
-   - Add a bucket policy to allow Cloudflare traffic with the injected Referrer header.
+   - Add a bucket policy to restrict access to Cloudflare traffic with the injected Referrer header.
+
+#### Example S3 Bucket Policy
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowRequestsWithSpecificReferer",
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::your-s3-bucket-name/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:Referer": "your-secure-referrer-header"
+        }
+      }
+    }
+  ]
+}
+```
+Replace:
+- `your-s3-bucket-name` with your actual S3 bucket name.
+- `your-secure-referrer-header` with the value you configure in Cloudflare Transform Rules.
 
 2. **EventBridge Scheduler**:
    - Create two EventBridge rules:
@@ -89,7 +136,13 @@ MONGO_URI=mongodb://your_mongo_uri
 3. **IAM Permissions**:
    - Ensure the IAM role attached to your EC2 instance allows access to S3 and CloudWatch.
 
-### Step 4: Deploy the Flask Application
+### Step 4: Configure Cloudflare Transform Rules
+- Navigate to your Cloudflare dashboard and set up a Transform Rule to inject the Referrer header for requests to your S3 bucket.
+- Example Rule:
+  - **Condition**: Apply to all incoming requests for the S3 endpoint.
+  - **Action**: Set static header `Referer` with value `your-secure-referrer-header`.
+
+### Step 5: Deploy the Flask Application
 1. Copy the repository contents to your EC2 instance.
 2. Start the application using the provided `oi.service` file:
    ```bash
@@ -97,7 +150,7 @@ MONGO_URI=mongodb://your_mongo_uri
    sudo systemctl enable oi.service
    ```
 
-### Step 5: Set Up Cron Jobs
+### Step 6: Set Up Cron Jobs
 Add the following cron jobs to the EC2 instance:
 ```bash
 # Generate and upload index.html post-market hours
@@ -107,7 +160,7 @@ Add the following cron jobs to the EC2 instance:
 40 15 * * * /usr/bin/python3 /path/to/update_to_cname_record.py >> /var/log/update_to_cname.log 2>&1
 ```
 
-### Step 6: Update API Keys in Scripts
+### Step 7: Update API Keys in Scripts
 - **upload.py**:
   Update the following variables in the script:
   ```python
@@ -142,7 +195,7 @@ Add the following cron jobs to the EC2 instance:
   DHAN_ACCESS_TOKEN = "your_dhan_access_token"
   ```
 
-### Step 7: Configure Systemd Services
+### Step 8: Configure Systemd Services
 1. **OI Service**:
    - The `oi.service` file ensures the Flask application starts automatically when the EC2 instance is launched.
    ```ini
@@ -221,5 +274,3 @@ Add the following cron jobs to the EC2 instance:
 - **IAM Policies**: Restrict permissions to only the resources this project requires.
 
 ---
-
-
