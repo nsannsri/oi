@@ -142,6 +142,47 @@ Add the following cron jobs to the EC2 instance:
   DHAN_ACCESS_TOKEN = "your_dhan_access_token"
   ```
 
+### Step 7: Configure Systemd Services
+1. **OI Service**:
+   - The `oi.service` file ensures the Flask application starts automatically when the EC2 instance is launched.
+   ```ini
+   [Unit]
+   Description=OI Service (Flask Application)
+   After=network.target
+
+   [Service]
+   ExecStart=/usr/bin/python3 /path/to/app.py
+   Restart=always
+   User=ec2-user
+
+   [Install]
+   WantedBy=multi-user.target
+   ```
+   - Save this file in `/etc/systemd/system/oi.service` and enable it:
+     ```bash
+     sudo systemctl enable oi.service
+     ```
+
+2. **DNS A Record Service**:
+   - Automates the update of Cloudflare's DNS A record to point to the EC2 public IP upon instance startup:
+   ```ini
+   [Unit]
+   Description=Update DNS A Record Service
+   After=network.target
+
+   [Service]
+   ExecStart=/usr/bin/python3 /path/to/update_to_a_record.py
+   Restart=on-failure
+   User=ec2-user
+
+   [Install]
+   WantedBy=multi-user.target
+   ```
+   - Save this file in `/etc/systemd/system/dns-update.service` and enable it:
+     ```bash
+     sudo systemctl enable dns-update.service
+     ```
+
 ---
 
 ## Project Structure
@@ -156,6 +197,7 @@ Add the following cron jobs to the EC2 instance:
 ├── requirements.txt       # Python dependencies
 ├── .env                   # Environment variables (not committed to GitHub)
 ├── oi.service             # Systemd service file for Flask app
+├── dns-update.service     # Systemd service file for DNS updates
 ├── crontab.txt            # Example cron jobs for automation
 └── README.md              # Project documentation
 ```
@@ -179,4 +221,5 @@ Add the following cron jobs to the EC2 instance:
 - **IAM Policies**: Restrict permissions to only the resources this project requires.
 
 ---
+
 
