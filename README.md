@@ -26,14 +26,18 @@ This repository contains the source code for a dynamic, scalable Open Interest (
    - Cloudflare account with your domain configured.
    - API token with permissions to manage DNS records and SSL settings.
 
-3. **MongoDB**:
+3. **Dhan Account Setup**:
+   - A **DhanHQ** account with API access enabled.
+   - API credentials (Client ID and Access Token) for accessing market data.
+
+4. **MongoDB**:
    - A running MongoDB instance (local or cloud-hosted) with access for caching real-time data.
 
-4. **Python**:
+5. **Python**:
    - Python 3.8 or above installed.
    - Virtual environment setup (recommended).
 
-5. **Dependencies**:
+6. **Dependencies**:
    - Install required Python packages using `requirements.txt`:
      ```bash
      pip install -r requirements.txt
@@ -175,5 +179,4 @@ Add the following cron jobs to the EC2 instance:
 - **IAM Policies**: Restrict permissions to only the resources this project requires.
 
 ---
-
 
